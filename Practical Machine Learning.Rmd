@@ -129,7 +129,7 @@ testpredict_rf <- predict(rf, newdata=testing)
 results <- function(x) {
         n <- length(x)
         for (i in 1:n) {
-                filename <- paste0(i, ".txt")
+                filename <- paste0("problem_id_",i, ".txt")
                 write.table(x[i], file=filename, quote=F, row.names=F,col.names=F)
         }
 }
