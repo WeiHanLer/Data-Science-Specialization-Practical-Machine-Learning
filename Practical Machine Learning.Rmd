@@ -1,0 +1,139 @@
+---
+title: "Practical Machine Learning Peer Assessment"
+author: "Wei Han"
+date: "August 2, 2018"
+output: html_document
+---
+
+#Executive Summary
+The project aims to harness a prediction model from the training set that is sufficient to predict the correct classe of the test set.
+
+
+
+##Background and Assignment Motivation
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, my goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+
+###Datasets used in this porject
+
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+
+
+##Data Preprocessing
+
+Loading the required packages:
+
+```{r}
+library(caret)
+library(rpart)
+library(knitr)
+library(randomForest)
+library(ElemStatLearn)
+library(janitor)
+
+set.seed(123)
+
+```
+
+Setting up the working directory,downloading the required files and loading them into Rstudio.
+
+```{r}
+setwd("C:/Users/michael/Desktop/coursera/8week4")
+trainingurl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testingurl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(trainingurl,destfile="pml-training.csv")
+download.file(testingurl,destfile="pml-testing.csv")
+
+
+pml.training <- read.csv("pml-training.csv",header = T,row.names = 1)
+pml.testing <- read.csv("pml-testing.csv",header = T,row.names = 1) 
+```
+
+Exploring the dataset a little to understand the type of data we are given:
+```{r}
+#output not displayed due to too many rows
+str(pml.training)
+
+```
+
+##Data Cleaning,Transformation and Feature Selection
+
+
+Data is transformed and cleaned to extract only the meaningful data to be used.
+Noticing that some of the variables have a large number of NA values, a quick and dirty way to clean the data without imputing is to remove the columns with NA.
+
+```{r}
+#The first 6 rows are removed as they are irrelevant and increases the standard error
+
+training<- pml.training[,-c(1:6)]
+testing<-pml.testing[,-c(1:6)]
+
+# Variables with near zero covariance are removed
+
+zerovariance <- nearZeroVar(training,saveMetrics=TRUE)
+training <- training[,!zerovariance $nzv]
+testing <- testing[,!zerovariance $nzv]
+
+# Variables with missing values are removed
+training<- training[,!(colSums(is.na(training)) > 0)]
+testing<- testing[,!(colSums(is.na(testing)) > 0)]
+
+
+```
+
+##Creating the data partition
+
+In the training set, we partition the data into training and validation set.
+```{r}
+fortraining <- createDataPartition(training$classe, p=0.8, list=FALSE)
+training <- training[fortraining,]
+validation <-training[-fortraining,] 
+```
+
+
+##Random Forest Model
+
+With the data ready to go, the random forest model is fitted.
+```{r}
+
+rf<-randomForest(classe~.,data=training)
+rf
+```
+
+The out-of-bag estimate of error is 0.4% meaning that our model performed really really well.The performance of the model is further tested using the validation set.
+```{r}
+predictrf<-predict(rf,newdata=validation)
+confusionMatrix(predictrf,validation$classe)
+
+```
+
+Welp! With an accuracy of 100% and an out-of-sample rate of precisely 0% , this is truly the most robust tool for predicting the upcoming test$classe values, at least for this particular run. With a test set less than 150 times the number of observations of the validation set, anything less than a perfect score on the test set would be a surprise at this point.
+
+
+##Prediction
+The final results of the prediction is output into seperate .txt files.
+```{r}
+testpredict_rf <- predict(rf, newdata=testing)
+results <- function(x) {
+        n <- length(x)
+        for (i in 1:n) {
+                filename <- paste0(i, ".txt")
+                write.table(x[i], file=filename, quote=F, row.names=F,col.names=F)
+        }
+}
+results(testpredict_rf)
+
+```
+
